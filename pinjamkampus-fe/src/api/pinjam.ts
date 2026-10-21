@@ -43,9 +43,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
-function jsonBody(data: unknown): RequestInit {
+function jsonBody(data: unknown, method: 'POST' | 'PUT' = 'POST'): RequestInit {
   return {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }
@@ -81,4 +81,13 @@ export function getPeminjaman(id: number): Promise<Peminjaman> {
 
 export function createPeminjaman(data: PeminjamanInput): Promise<Peminjaman> {
   return request<Peminjaman>('/peminjaman', jsonBody(data))
+}
+
+// ---------- Ubah dan hapus (F6) ----------
+export function updatePeminjaman(id: number, data: PeminjamanInput): Promise<Peminjaman> {
+  return request<Peminjaman>(`/peminjaman/${id}`, jsonBody(data, 'PUT'))
+}
+
+export function deletePeminjaman(id: number): Promise<void> {
+  return request<void>(`/peminjaman/${id}`, { method: 'DELETE' })
 }

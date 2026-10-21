@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { createPeminjaman, pesanError } from '../api/pinjam'
-import type { SumberDaya } from '../types'
+import { createPeminjaman, pesanError, updatePeminjaman } from '../api/pinjam'
+import type { Peminjaman, SumberDaya } from '../types'
 import { bilanganBulat, tanggalValid } from '../validasi'
 
 interface Props {
   sumberDaya: SumberDaya[]
-  onCreated: () => void
+  awal: Peminjaman | null // null = mode buat; berisi data = mode edit
+  onSaved: () => void
+  onBatalEdit: () => void
 }
 
 interface FormState {
@@ -27,9 +29,25 @@ const FORM_KOSONG: FormState = {
   jumlah: '',
 }
 
-export default function PeminjamanForm({ sumberDaya, onCreated }: Props) {
-  const [form, setForm] = useState<FormState>(FORM_KOSONG)
+function dariPeminjaman(p: Peminjaman): FormState {
+  return {
+    sumberDayaId: String(p.sumber_daya_id),
+    peminjam: p.peminjam,
+    tanggal: p.tanggal,
+    slotMulai: String(p.slot_mulai),
+    slotSelesai: String(p.slot_selesai),
+    jumlah: String(p.jumlah),
+  }
+}
+
+export default function PeminjamanForm({ sumberDaya, awal, onSaved, onBatalEdit }: Props) {
+  // Nilai awal dihitung sekali. App memberi `key` baru setiap masuk/keluar mode edit,
+  // sehingga komponen dibuat ulang dengan isian yang benar.
+  const [form, setForm] = useState<FormState>(awal ? dariPeminjaman(awal) : FORM_KOSONG)
   const [error, setError] = useState('')
+  const [menyimpan, setMenyimpan] = useState(false)
+  const sedangKirim = useRef(false)
+  const modeEdit = awal !== null
 
   // Satu fungsi untuk semua kolom: salin objek lama, ganti satu field (tanpa mutasi)
   function ubah(field: keyof FormState, nilai: string) {
@@ -38,6 +56,7 @@ export default function PeminjamanForm({ sumberDaya, onCreated }: Props) {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (sedangKirim.current) return // klik ganda: abaikan
     setError('')
 
     const peminjam = form.peminjam.trim()
@@ -57,19 +76,30 @@ export default function PeminjamanForm({ sumberDaya, onCreated }: Props) {
       return setError(`Jumlah harus bilangan bulat antara 1 dan ${sd.stok}.`)
     }
 
+    const data = {
+      sumber_daya_id: sd.id,
+      peminjam,
+      tanggal: form.tanggal,
+      slot_mulai: mulai,
+      slot_selesai: selesai,
+      jumlah,
+    }
+
+    sedangKirim.current = true
+    setMenyimpan(true)
     try {
-      await createPeminjaman({
-        sumber_daya_id: sd.id,
-        peminjam,
-        tanggal: form.tanggal,
-        slot_mulai: mulai,
-        slot_selesai: selesai,
-        jumlah,
-      })
+      if (awal) {
+        await updatePeminjaman(awal.id, data) // PUT: mengganti keenam field
+      } else {
+        await createPeminjaman(data) // POST
+      }
       setForm(FORM_KOSONG) // dikosongkan HANYA setelah berhasil
-      onCreated()
+      onSaved() // App mengambil ulang daftar dan kembali ke mode buat
     } catch (err) {
-      setError(pesanError(err))
+      setError(pesanError(err)) // 400/404/409: isian dibiarkan, daftar tidak berubah
+    } finally {
+      sedangKirim.current = false
+      setMenyimpan(false)
     }
   }
 
@@ -78,36 +108,43 @@ export default function PeminjamanForm({ sumberDaya, onCreated }: Props) {
       <h2>Form peminjaman</h2>
       <div>
         <label htmlFor="pm-sd">Sumber daya</label>
-          <select id="pm-sd" value={form.sumberDayaId} onChange={(e) => ubah('sumberDayaId', e.target.value)}>
-            <option value="">-- pilih --</option>
-            {sumberDaya.map((sd) => (
-              <option key={sd.id} value={sd.id}>
-                {sd.nama}
-              </option>
-            ))}
-          </select>
+        <select id="pm-sd" value={form.sumberDayaId} onChange={(e) => ubah('sumberDayaId', e.target.value)}>
+          <option value="">-- pilih --</option>
+          {sumberDaya.map((sd) => (
+            <option key={sd.id} value={sd.id}>
+              {sd.nama}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label htmlFor="pm-peminjam">Peminjam</label>
-          <input id="pm-peminjam" type="text" value={form.peminjam} onChange={(e) => ubah('peminjam', e.target.value)} />
+        <input id="pm-peminjam" type="text" value={form.peminjam} onChange={(e) => ubah('peminjam', e.target.value)} />
       </div>
       <div>
         <label htmlFor="pm-tanggal">Tanggal</label>
-          <input id="pm-tanggal" type="date" value={form.tanggal} onChange={(e) => ubah('tanggal', e.target.value)} />
+        <input id="pm-tanggal" type="date" value={form.tanggal} onChange={(e) => ubah('tanggal', e.target.value)} />
       </div>
       <div>
         <label htmlFor="pm-mulai">Slot mulai</label>
-          <input id="pm-mulai" type="number" value={form.slotMulai} onChange={(e) => ubah('slotMulai', e.target.value)} />
+        <input id="pm-mulai" type="number" value={form.slotMulai} onChange={(e) => ubah('slotMulai', e.target.value)} />
       </div>
       <div>
         <label htmlFor="pm-selesai">Slot selesai</label>
-          <input id="pm-selesai" type="number" value={form.slotSelesai} onChange={(e) => ubah('slotSelesai', e.target.value)} />
+        <input id="pm-selesai" type="number" value={form.slotSelesai} onChange={(e) => ubah('slotSelesai', e.target.value)} />
       </div>
       <div>
         <label htmlFor="pm-jumlah">Jumlah</label>
-          <input id="pm-jumlah" type="number" value={form.jumlah} onChange={(e) => ubah('jumlah', e.target.value)} />
+        <input id="pm-jumlah" type="number" value={form.jumlah} onChange={(e) => ubah('jumlah', e.target.value)} />
       </div>
-      <button type="submit">Simpan peminjaman</button>
+      <button type="submit" disabled={menyimpan}>
+        {modeEdit ? 'Simpan perubahan' : 'Simpan peminjaman'}
+      </button>
+      {modeEdit && (
+        <button type="button" onClick={onBatalEdit} disabled={menyimpan}>
+          Batal edit
+        </button>
+      )}
       {error && <p role="alert">{error}</p>}
     </form>
   )

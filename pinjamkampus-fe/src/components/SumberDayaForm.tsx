@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createSumberDaya, pesanError } from '../api/pinjam'
 import type { Jenis, SumberDaya } from '../types'
@@ -13,9 +13,12 @@ export default function SumberDayaForm({ onCreated }: Props) {
   const [jenis, setJenis] = useState<Jenis>('ruang')
   const [stok, setStok] = useState('')
   const [error, setError] = useState('')
+  const [menyimpan, setMenyimpan] = useState(false)
+  const sedangKirim = useRef(false) // penjaga langsung (state baru berubah setelah render)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (sedangKirim.current) return
     setError('')
 
     const namaBersih = nama.trim()
@@ -24,6 +27,8 @@ export default function SumberDayaForm({ onCreated }: Props) {
     if (namaBersih.length > 50) return setError('Nama sumber daya maksimal 50 karakter.')
     if (stokAngka === null || stokAngka < 1) return setError('Stok harus bilangan bulat minimal 1.')
 
+    sedangKirim.current = true
+    setMenyimpan(true)
     try {
       const baru = await createSumberDaya({ nama: namaBersih, jenis, stok: stokAngka })
       onCreated(baru)
@@ -32,6 +37,9 @@ export default function SumberDayaForm({ onCreated }: Props) {
       setStok('')
     } catch (err) {
       setError(pesanError(err)) // isian tidak dikosongkan saat gagal
+    } finally {
+      sedangKirim.current = false
+      setMenyimpan(false)
     }
   }
 
@@ -53,7 +61,9 @@ export default function SumberDayaForm({ onCreated }: Props) {
         <label htmlFor="sd-stok">Stok</label>
           <input id="sd-stok" type="number" value={stok} onChange={(e) => setStok(e.target.value)} />
       </div>
-      <button type="submit">Simpan sumber daya</button>
+      <button type="submit" disabled={menyimpan}>
+        Simpan sumber daya
+      </button>
       {error && <p role="alert">{error}</p>}
     </form>
   )

@@ -4,10 +4,11 @@ import type { Peminjaman, SumberDaya } from '../types'
 
 interface Props {
   id: number
+  versi: number // naik setiap data berubah, memicu ambil ulang detail
   sumberDaya: SumberDaya[]
 }
 
-export default function DetailPeminjaman({ id, sumberDaya }: Props) {
+export default function DetailPeminjaman({ id, versi, sumberDaya }: Props) {
   const [data, setData] = useState<Peminjaman | null>(null)
   const [error, setError] = useState('')
 
@@ -25,7 +26,7 @@ export default function DetailPeminjaman({ id, sumberDaya }: Props) {
     return () => {
       batal = true
     }
-  }, [id])
+  }, [id, versi])
 
   const namaSd = data ? (sumberDaya.find((s) => s.id === data.sumber_daya_id)?.nama ?? `#${data.sumber_daya_id}`) : ''
 

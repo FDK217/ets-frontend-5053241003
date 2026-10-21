@@ -23,3 +23,18 @@ Log yang jujur tidak mengurangi nilai, sebanyak apa pun AI dipakai. Yang mengura
 - Prompt: sama dengan entri di atas (bagian F3).
 - Dipakai: `App.tsx` (dua `useEffect`: sekali untuk sumber daya, dan `[filter, reload]` untuk peminjaman), `FilterPeminjaman.tsx`, `PeminjamanList.tsx`, `DetailPeminjaman.tsx` (dengan flag `batal` pada cleanup).
 - Diubah: saat server mati semula muncul dua `role="alert"` identik (satu per pengambilan data); digabung menjadi satu (`errorSd || errorPm`).
+
+## F4 dan F5 Validasi, error server, dan bentrok 409
+- Prompt: "Lanjutkan ke F4-F7 (kartu persona D sudah dilampirkan)." (Claude)
+- Dipakai: validasi berurutan dengan `role="alert"` di `SumberDayaForm`/`PeminjamanForm`, `request<T>()` yang membaca `{"error": ...}` dan melempar `ApiError`, pesan "error ... gagal menghubungi server", form dikosongkan hanya setelah sukses.
+- Diubah: tidak ada perubahan kode baru untuk F4/F5 pada tahap ini; yang ada dari F1-F3 diperiksa ulang dengan pengujian di browser (409 pada POST dan PUT menampilkan pesan server, isian tetap, daftar tidak berubah).
+
+## F6 Ubah dan hapus
+- Prompt: sama dengan entri di atas (bagian F6).
+- Dipakai: `updatePeminjaman` (PUT) dan `deletePeminjaman` (DELETE) di `src/api/pinjam.ts`; prop `awal` pada `PeminjamanForm` untuk mode edit dengan `key={formKey}` di `App`; tombol Edit/Hapus di `PeminjamanList`; `handleEdit`, `handleSaved`, `handleHapus` di `App.tsx`; konstanta `STATUS_MENAHAN_SLOT` di `types.ts`.
+- Diubah: dalam rancangan AI, setelah hapus detail yang sedang terbuka dibiarkan menampilkan 404; diubah supaya detail ditutup (`setDetailId(null)`) dan mode edit dibatalkan jika item yang dihapus sedang dibuka. Ditambah tombol "Batal edit" agar pengguna bisa keluar dari mode edit tanpa menyimpan.
+
+## F7 Aman klik ganda dan data konsisten
+- Prompt: sama dengan entri di atas (bagian F7).
+- Dipakai: `useRef` (`sedangKirim`, `hapusBerjalan`) ditambah state `menyimpan`/`menghapus` untuk menonaktifkan tombol; `reload` dan prop `versi` pada `DetailPeminjaman` supaya daftar dan detail diambil ulang dari server setelah setiap aksi; `handleHapus` memanggil `muatUlang()` di `finally` (juga saat 404).
+- Diubah: tidak ada revisi setelah pengujian. Pengujian di browser dengan `dblclick` pada Simpan sumber daya, Simpan peminjaman, Simpan perubahan, dan Hapus masing-masing hanya menghasilkan satu permintaan.

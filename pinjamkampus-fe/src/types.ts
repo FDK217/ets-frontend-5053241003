@@ -47,3 +47,5 @@ export const FILTER_KOSONG: FilterPeminjaman = {
   tanggal: '',
   status: '',
 }
+
+export const STATUS_MENAHAN_SLOT = ['aktif', 'diajukan', 'disetujui']
